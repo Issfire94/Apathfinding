@@ -1,0 +1,156 @@
+
+    'A* Pathfinding ---find the path
+    Private Sub FindPath(ByRef disX As Integer, ByRef disY As Integer, ByVal Enem As Enemy)
+        Dim xCnt, yCnt As Int16
+        StartX = Enem.x
+        StartY = Enem.y
+        EndX = maincharx
+        EndY = mainchary
+
+        'is start and end within bounds
+        If StartX < 0 Or StartY < 0 Or StartX > ptbwid Or StartY > ptbheight Or EndX < 0 Or EndY < 0 Or EndX > ptbwid Or EndY > ptbheight Then
+            MsgBox("error1")
+            Exit Sub
+        End If
+
+        'Make sure the starting point and ending point are not the same
+        If (StartX = EndX) And (StartY = EndY) Then
+            Exit Sub
+        End If
+
+        'Make sure the starting point is not a wall
+        If Map(StartX, StartY).Wall Or Map(EndX, EndY).Wall Then
+            MsgBox("error3")
+            Exit Sub
+        End If
+
+        'Set the flags
+        PathFound = False
+        PathHunt = True
+
+        'Put the starting point on the open list
+        Map(StartX, StartY).OCList = inOpened
+        Heap.Add(0, StartX, StartY)
+
+        'Find the children
+        While PathHunt
+            If Heap.Count <> 0 Then
+                'Get the parent node
+                ParentX = Heap.GetX
+                ParentY = Heap.GetY
+
+                'Remove the root
+                Map(ParentX, ParentY).OCList = inClosed
+                Heap.RemoveRoot()
+
+                'Find the available children to add to the open list
+                For yCnt = (ParentY - 1) To (ParentY + 1)
+                    For xCnt = (ParentX - 1) To (ParentX + 1)
+
+                        'Make sure we are not out of bounds
+                        If xCnt <> -1 And xCnt <> ptbwid And yCnt <> -1 And yCnt < ptbheight Then
+
+                            'Make sure it's not on the closed list
+                            If Map(xCnt, yCnt).OCList <> inClosed Then
+
+                                'Make sure no wall
+                                If Map(xCnt, yCnt).Wall = False Then
+
+                                    'Don't cut across corners
+                                    Dim CanWalk As Boolean = True
+                                    If xCnt = ParentX - 1 Then
+                                        If yCnt = ParentY - 1 Then
+                                            If Map(ParentX - 1, ParentY).Wall = True Or Map(ParentX, ParentY - 1).Wall = True Then CanWalk = False
+                                        ElseIf yCnt = ParentY + 1 Then
+                                            If Map(ParentX, ParentY + 1).Wall = True Or Map(ParentX - 1, ParentY).Wall = True Then CanWalk = False
+                                        End If
+                                    ElseIf xCnt = ParentX + 1 Then
+                                        If yCnt = ParentY - 1 Then
+                                            If Map(ParentX, ParentY - 1).Wall = True Or Map(ParentX + 1, ParentY).Wall = True Then CanWalk = False
+                                        ElseIf yCnt = ParentY + 1 Then
+                                            If Map(ParentX + 1, ParentY).Wall = True Or Map(ParentX, ParentY + 1).Wall = True Then CanWalk = False
+                                        End If
+                                    End If
+
+                                    'If we can move this way
+                                    If CanWalk = True Then
+                                        If Map(xCnt, yCnt).OCList <> inOpened Then
+
+                                            'Calculate the GCost
+                                            If Math.Abs(xCnt - ParentX) = 1 And Math.Abs(yCnt - ParentY) = 1 Then
+                                                Map(xCnt, yCnt).GCost = Map(ParentX, ParentY).GCost + 14
+                                            Else
+                                                Map(xCnt, yCnt).GCost = Map(ParentX, ParentY).GCost + 10
+                                            End If
+
+                                            'Calculate the HCost
+                                            Map(xCnt, yCnt).HCost = 10 * (Math.Abs(xCnt - EndX) + Math.Abs(yCnt - EndY))
+                                            Map(xCnt, yCnt).FCost = (Map(xCnt, yCnt).GCost + Map(xCnt, yCnt).HCost)
+
+                                            'Add the parent value
+                                            Map(xCnt, yCnt).ParentX = ParentX
+                                            Map(xCnt, yCnt).ParentY = ParentY
+
+                                            'Add the item to the heap
+                                            Heap.Add(Map(xCnt, yCnt).FCost, xCnt, yCnt)
+
+                                            'Add the item to the open list
+                                            Map(xCnt, yCnt).OCList = inOpened
+
+                                        Else
+                                            'We will check for better value
+                                            Dim AddedGCost As Int16
+                                            If Math.Abs(xCnt - ParentX) = 1 And Math.Abs(yCnt - ParentY) = 1 Then
+                                                AddedGCost = 14
+                                            Else
+                                                AddedGCost = 10
+                                            End If
+                                            Dim tempCost As Int16 = Map(ParentX, ParentY).GCost + AddedGCost
+
+                                            If tempCost < Map(xCnt, yCnt).GCost Then
+                                                Map(xCnt, yCnt).GCost = tempCost
+                                                Map(xCnt, yCnt).ParentX = ParentX
+                                                Map(xCnt, yCnt).ParentY = ParentY
+                                                If Map(xCnt, yCnt).OCList = inOpened Then
+                                                    Dim NewCost As Int16 = Map(xCnt, yCnt).HCost + Map(xCnt, yCnt).GCost
+                                                    Heap.Add(NewCost, xCnt, yCnt)
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    Next
+                Next
+            Else
+                PathFound = False
+                PathHunt = False
+                Exit Sub
+            End If
+
+            'If we find a path
+            If Map(EndX, EndY).OCList = inOpened Then
+                PathFound = True
+                PathHunt = False
+            End If
+
+        End While
+
+        If PathFound Then
+            Dim tX As Int16 = EndX
+            Dim tY As Int16 = EndY
+
+            Map(tX, tY).DrawPath = True
+            While True
+                Dim sX As Int16 = Map(tX, tY).ParentX
+                Dim sY As Int16 = Map(tX, tY).ParentY
+                Map(sX, sY).DrawPath = True
+                tX = sX
+                tY = sY
+                If (tX = StartX And tY = StartY) Or sX = 0 Or sY = 0 Then Exit While
+                disX = tX   'changing next location for the enemy to move to
+                disY = tY
+            End While
+        End If
+    End Sub
